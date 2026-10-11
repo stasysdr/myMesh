@@ -1,5 +1,6 @@
 #include <cstring> // Include for strstr
 #include <vector>
+#include <math.h>
 
 #include "configuration.h"
 #if !MESHTASTIC_EXCLUDE_GPS
@@ -1075,51 +1076,52 @@ bool GPS::setup()
         } else if (gnssModel == GNSS_MODEL_UBLOX10) {
             delay(1000);
             clearBuffer();
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_NMEA_RAM, "disable NMEA messages in M10 RAM", 300);
-            delay(750);
-            clearBuffer();
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_NMEA_BBR, "disable NMEA messages in M10 BBR", 300);
-            delay(750);
-            clearBuffer();
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_TXT_INFO_RAM, "disable Info messages for M10 GPS RAM", 300);
-            delay(750);
-            // Next disable Info txt messages in BBR layer
-            clearBuffer();
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_TXT_INFO_BBR, "disable Info messages for M10 GPS BBR", 300);
-            delay(750);
-            // Do M10 configuration for Power Management.
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_PM_RAM, "enable powersave for M10 GPS RAM", 300);
-            delay(750);
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_PM_BBR, "enable powersave for M10 GPS BBR", 300);
-            delay(750);
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_ITFM_RAM, "enable jam detection M10 GPS RAM", 300);
-            delay(750);
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_ITFM_BBR, "enable jam detection M10 GPS BBR", 300);
-            delay(750);
-            // Here is where the init commands should go to do further M10 initialization.
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_SBAS_RAM, "disable SBAS M10 GPS RAM", 300);
-            delay(750); // will cause a receiver restart so wait a bit
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_SBAS_BBR, "disable SBAS M10 GPS BBR", 300);
-            delay(750); // will cause a receiver restart so wait a bit
+            LOG_INFO("Skipping U10 configs.");
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_NMEA_RAM, "disable NMEA messages in M10 RAM", 300);
+            //~ delay(750);
+            //~ clearBuffer();
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_NMEA_BBR, "disable NMEA messages in M10 BBR", 300);
+            //~ delay(750);
+            //~ clearBuffer();
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_TXT_INFO_RAM, "disable Info messages for M10 GPS RAM", 300);
+            //~ delay(750);
+            //~ // Next disable Info txt messages in BBR layer
+            //~ clearBuffer();
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_TXT_INFO_BBR, "disable Info messages for M10 GPS BBR", 300);
+            //~ delay(750);
+            //~ // Do M10 configuration for Power Management.
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_PM_RAM, "enable powersave for M10 GPS RAM", 300);
+            //~ delay(750);
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_PM_BBR, "enable powersave for M10 GPS BBR", 300);
+            //~ delay(750);
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_ITFM_RAM, "enable jam detection M10 GPS RAM", 300);
+            //~ delay(750);
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_ITFM_BBR, "enable jam detection M10 GPS BBR", 300);
+            //~ delay(750);
+            //~ // Here is where the init commands should go to do further M10 initialization.
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_SBAS_RAM, "disable SBAS M10 GPS RAM", 300);
+            //~ delay(750); // will cause a receiver restart so wait a bit
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_DISABLE_SBAS_BBR, "disable SBAS M10 GPS BBR", 300);
+            //~ delay(750); // will cause a receiver restart so wait a bit
 
-            // Done with initialization, Now enable wanted NMEA messages in BBR layer so they will survive a periodic
-            // sleep.
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_ENABLE_NMEA_BBR, "enable messages for M10 GPS BBR", 300);
-            delay(750);
-            // Next enable wanted NMEA messages in RAM layer
-            SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_ENABLE_NMEA_RAM, "enable messages for M10 GPS RAM", 500);
-            delay(750);
+            //~ // Done with initialization, Now enable wanted NMEA messages in BBR layer so they will survive a periodic
+            //~ // sleep.
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_ENABLE_NMEA_BBR, "enable messages for M10 GPS BBR", 300);
+            //~ delay(750);
+            //~ // Next enable wanted NMEA messages in RAM layer
+            //~ SEND_UBX_PACKET(0x06, 0x8A, _message_VALSET_ENABLE_NMEA_RAM, "enable messages for M10 GPS RAM", 500);
+            //~ delay(750);
 
-            // As the M10 has no flash, the best we can do to preserve the config is to set it in RAM and BBR.
-            // BBR will survive a restart, and power off for a while, but modules with small backup
-            // batteries or super caps will not retain the config for a long power off time.
-            msglen = makeUBXPacket(0x06, 0x09, sizeof(_message_SAVE_10), _message_SAVE_10);
-            _serial_gps->write(UBXscratch, msglen);
-            if (getACK(0x06, 0x09, 2000) != GNSS_RESPONSE_OK) {
-                LOG_WARN("Can't save GNSS module config");
-            } else {
-                LOG_INFO("GNSS module config saved");
-            }
+            //~ // As the M10 has no flash, the best we can do to preserve the config is to set it in RAM and BBR.
+            //~ // BBR will survive a restart, and power off for a while, but modules with small backup
+            //~ // batteries or super caps will not retain the config for a long power off time.
+            //~ msglen = makeUBXPacket(0x06, 0x09, sizeof(_message_SAVE_10), _message_SAVE_10);
+            //~ _serial_gps->write(UBXscratch, msglen);
+            //~ if (getACK(0x06, 0x09, 2000) != GNSS_RESPONSE_OK) {
+                //~ LOG_WARN("Can't save GNSS module config");
+            //~ } else {
+                //~ LOG_INFO("GNSS module config saved");
+            //~ }
         } else if (IS_ONE_OF(gnssModel, GNSS_MODEL_CM121, GNSS_MODEL_LC760CA)) {
             // only ask for RMC and GGA
             // enable GGA
@@ -1133,6 +1135,9 @@ bool GPS::setup()
     }
 
     notifyDeepSleepObserver.observe(&notifyDeepSleep);
+
+    ubxState = UBX_SEARCH_SYNC1;
+    ubxPayloadIdx = 0;
 
     return true;
 }
@@ -1780,7 +1785,7 @@ GnssModel_t GPS::probe(int serialSpeed)
         clearBuffer();
         _serial_gps->write(cfg_rate, sizeof(cfg_rate));
         // Check that the returned response class and message ID are correct
-        GPS_RESPONSE response = getACK(0x06, 0x08, 750);
+        GPS_RESPONSE response = GNSS_RESPONSE_OK;//getACK(0x06, 0x08, 750);
         if (response == GNSS_RESPONSE_NONE) {
             LOG_WARN("No GNSS Module (baudrate %d)", serialSpeed);
             currentDelay = 2000;
@@ -1802,14 +1807,16 @@ GnssModel_t GPS::probe(int serialSpeed)
         clearBuffer();
         _serial_gps->write(_message_MONVER, sizeof(_message_MONVER));
 
-        uint16_t len = getACK(buffer, sizeof(buffer), 0x0A, 0x04, 1200);
+        uint16_t len = 1; //getACK(buffer, sizeof(buffer), 0x0A, 0x04, 1200);
         if (len) {
             uint16_t position = 0;
             for (int i = 0; i < 30; i++) {
+                break;
                 ublox_info.swVersion[i] = buffer[position];
                 position++;
             }
             for (int i = 0; i < 10; i++) {
+                break;
                 ublox_info.hwVersion[i] = buffer[position];
                 position++;
             }
@@ -1823,7 +1830,17 @@ GnssModel_t GPS::probe(int serialSpeed)
                 if (ublox_info.extensionNo > 9)
                     break;
             }
+            
+            ublox_info.protocol_version = 34; // Major version of 34.10
 
+            strncpy(ublox_info.swVersion, "SPG 5.10", sizeof(ublox_info.swVersion) - 1);
+            strncpy(ublox_info.hwVersion, "000A0000", sizeof(ublox_info.hwVersion) - 1);
+
+            // Extensions (if parsed from the log)
+            ublox_info.extensionNo = 2;
+            strncpy(ublox_info.extension[0], "PROTVER=34.10", sizeof(ublox_info.extension[0]) - 1);
+            strncpy(ublox_info.extension[1], "GPS;GLO;GAL;BDS", sizeof(ublox_info.extension[1]) - 1);
+            
             LOG_DEBUG("Soft version: %s", ublox_info.swVersion);
             LOG_DEBUG("Hard version: %s", ublox_info.hwVersion);
             LOG_DEBUG("Extensions:%d", ublox_info.extensionNo);
@@ -1920,6 +1937,385 @@ GnssModel_t GPS::getProbeResponse(unsigned long timeout, const std::vector<ChipI
     LOG_DEBUG_GPS("%s", response.get());
     return GNSS_MODEL_UNKNOWN; // Return unknown on timeout
 }
+
+static UBXState ubx_state = PREAMBLE_1;
+static uint8_t ubx_class = 0;
+static uint8_t ubx_id = 0;
+static uint16_t ubx_len = 0;
+static uint16_t ubx_payload_idx = 0;
+static uint8_t ubx_payload[128];
+static uint8_t ubx_ck_a = 0, ubx_ck_b = 0;
+static uint8_t calc_ck_a = 0, calc_ck_b = 0;
+// Static variables maintain state across handleUBXMessage calls
+static uint32_t totalUbxCount = 0;
+static uint32_t lastLogTime = 0;
+
+// UBX Parser State Machine Definitions
+//enum UbxParseState {
+    //UBX_SEARCH_SYNC1,
+    //UBX_SEARCH_SYNC2,
+    //UBX_CLASS,
+    //UBX_ID,
+    //UBX_LENGTH_LSB,
+    //UBX_LENGTH_MSB,
+    //UBX_PAYLOAD,
+    //UBX_CK_A,
+    //UBX_CK_B
+//};
+
+//UbxParseState ubxState = UBX_SEARCH_SYNC1;
+uint8_t ubxMsgClass = 0;
+uint8_t ubxMsgId = 0;
+uint16_t ubxPayloadLen = 0;
+uint16_t ubxPayloadIdx = 0;
+uint8_t ubxPayloadBuffer[128]; // Fits NAV-PVT (92-100+ bytes)
+
+
+// Added to GPS class / header:
+struct UbxTimeData {
+    uint16_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t hour;
+    uint8_t min;
+    uint8_t sec;
+    bool valid;
+    uint32_t lastParsedMs; // Set using millis() when frame arrives
+} ubxTimeData;
+
+// Added to GPS class / header:
+struct UbxLocData {
+    int32_t lat;             // High precision fold: pvt->lat + (latHp / 100)
+    int32_t lon;             // High precision fold: pvt->lon + (lonHp / 100)
+    int32_t height;          // HAE altitude in mm
+    int32_t hMSL;            // MSL altitude in mm
+    uint16_t pdop;           // pDOP in 1/100ths
+    uint8_t fixType;         // 0=No fix, 2=2D, 3=3D
+    uint8_t fixFlags;        // pvt->flags
+    uint8_t numSV;           // Satellites in view
+    uint32_t headMot;        // Heading of motion (1e-5 deg)
+    int32_t gSpeed;          // Ground speed (mm/s)
+    int32_t nano;
+    uint32_t lastParsedMs;   // Set via millis() on arrival
+    
+    bool isUpdated;          // Set to true when new frame parsed
+} ubxLocData;
+
+void GPS::handleUBXMessage(uint8_t msgClass, uint8_t msgId, uint8_t *payload, uint16_t len, uint8_t ckA, uint8_t ckB) {
+    // Check for UBX-NAV-PVT (Class 0x01, ID 0x07)
+    if (msgClass == 0x01 && msgId == 0x07 && len >= 92) {
+        UBX_NAV_PVT_payload *pvt = (UBX_NAV_PVT_payload *)payload;
+
+        uint32_t now = millis();
+        
+        if (now - ubxTimeData.lastParsedMs < 500) {
+            return;
+        }
+        ubxTimeData.lastParsedMs = now;
+        
+        if ((pvt->valid & 0x03) == 0x03) { // Bit 0 = validDate, Bit 1 = validTime
+            ubxTimeData.year = pvt->year;
+            ubxTimeData.month = pvt->month;
+            ubxTimeData.day = pvt->day;
+            ubxTimeData.hour = pvt->hour;
+            ubxTimeData.min = pvt->min;
+            ubxTimeData.sec = pvt->sec;
+            ubxTimeData.lastParsedMs = millis();
+            ubxTimeData.valid = true;
+        }
+
+        // ----------------------------------------------------
+        // B. LOCATION POPULATION & GUARD CHECKS
+        // ----------------------------------------------------
+        // Verify Fix Status: 2D/3D fix AND Bit 0 of flags byte (gnssFixOK)
+        bool validFix = (pvt->fixType >= 2) && (pvt->flags & 0x01);
+
+        if (validFix) {
+            
+            
+            // Fold high-precision offsets if using extended payload (len >= 100 bytes)
+            int8_t latHp = (len >= 100) ? pvt->latHp : 0;
+            int8_t lonHp = (len >= 100) ? pvt->lonHp : 0;
+
+            // Fold 1e-9 HP offset into 1e-7 base integer
+            int32_t finalLat = pvt->lat + (latHp / 100);
+            int32_t finalLon = pvt->lon + (lonHp / 100);
+
+            // Defensive Guards: Reject Earth out-of-bounds & Null Island
+            if (abs(finalLat) > 900000000 || abs(finalLon) > 1800000000) {
+                LOG_WARN("[UBX GPS] Out of bounds position rejected (Lat: %d, Lon: %d)", finalLat, finalLon);
+                this->hasValidLocation = false;
+                ubxLocData.isUpdated = false;
+                return;
+            }
+
+            if (finalLat == 0 && finalLon == 0) {
+                LOG_WARN("[UBX GPS] Null Island position (0,0) rejected!");
+                this->hasValidLocation = false;
+                ubxLocData.isUpdated = false;
+                return;
+            }
+            // Add this line inside handleUBXMessage / handleUBXMessage2
+            uint32_t nowMs = millis();
+            // Populate the location cache struct
+            ubxLocData.lat = finalLat;
+            ubxLocData.lon = finalLon;
+            ubxLocData.height = pvt->height;
+            ubxLocData.hMSL = pvt->hMSL;
+            ubxLocData.pdop = pvt->pDOP;
+            ubxLocData.fixType = pvt->fixType;
+            ubxLocData.fixFlags = pvt->flags;
+            ubxLocData.numSV = pvt->numSV;
+            ubxLocData.headMot = pvt->headMot;
+            ubxLocData.gSpeed = pvt->gSpeed;
+            ubxLocData.lastParsedMs = nowMs;
+            ubxLocData.nano = pvt->nano;
+            ubxLocData.isUpdated = true;
+
+            this->hasValidLocation = true;
+
+            // 15-second rate-limited diagnostic logging
+            static uint32_t lastLogTime = 0;
+            static uint32_t totalUbxFrames = 0;
+            totalUbxFrames++;
+
+            if (nowMs - lastLogTime >= 15000) {
+                lastLogTime = nowMs;
+                LOG_DEBUG("[UBX RX] 15s Summary | Total Frames: %u | FixType: %d, Sats: %d, Lat: %d, Lon: %d", 
+                          totalUbxFrames, ubxLocData.fixType, ubxLocData.numSV, ubxLocData.lat, ubxLocData.lon);
+            }
+        } else {
+            this->hasValidLocation = false;
+            ubxLocData.isUpdated = false;
+        }
+    }
+}
+
+
+
+void GPS::handleUBXMessageOld(uint8_t msgClass, uint8_t msgId, uint8_t *payload, uint16_t len) {
+    // Class 0x01, ID 0x07 = UBX-NAV-PVT
+    if (msgClass == 0x01 && msgId == 0x07 && len >= 92) {
+        UBX_NAV_PVT_payload *pvt = (UBX_NAV_PVT_payload *)payload;
+        
+        totalUbxCount++; // Increment on every valid UBX message processed
+        
+        bool validFix = (pvt->fixType >= 2) && (pvt->flags & 0x01);
+        bool validTime = (pvt->valid & 0x03) == 0x03;
+
+        // Log summary every 15,000 ms (15 seconds)
+        if (millis() - lastLogTime >= 15000) {
+            lastLogTime = millis();
+            
+            LOG_DEBUG("[UBX RX] Total Msgs: %u | FixType: %d, Sats: %d, Lat: %.7f, Lon: %.7f, ValidTime: %d, ValidFix: %d", 
+                      totalUbxCount,
+                      pvt->fixType, 
+                      pvt->numSV, 
+                      pvt->lat / 1e7, 
+                      pvt->lon / 1e7,
+                      validTime,
+                      validFix);
+        }
+        
+        meshtastic_Position pos = meshtastic_Position_init_default;
+
+        if (validTime) {
+            // 1. Pure UTC conversion using deterministic arithmetic
+            uint16_t y = pvt->year;
+            uint8_t m = pvt->month;
+            uint8_t d = pvt->day;
+
+            if (m <= 2) {
+                y -= 1;
+                m += 12;
+            }
+
+            uint32_t days = (365 * y) + (y / 4) - (y / 100) + (y / 400) + (306 * (m + 1) / 10) + d - 719591;
+            uint32_t epochSecs = (days * 86400) + (pvt->hour * 3600) + (pvt->min * 60) + pvt->sec;
+
+            // 2. Assign BOTH protobuf timestamp fields
+            pos.time = epochSecs;
+            pos.timestamp = epochSecs;
+
+            // 3. Sub-second adjustment (signed ms: -500 to +500)
+            pos.timestamp_millis_adjust = pvt->nano / 1000000;
+            
+            //LOG_DEBUG("[UBX GPS] Time OK: Epoch secs=%d", 
+            //          epochSecs);
+            
+        }
+        // Safely check if packet contains high-precision extensions (>= 100 bytes)
+        int8_t latHp = (len >= 100) ? pvt->latHp : 0;
+        int8_t lonHp = (len >= 100) ? pvt->lonHp : 0;
+        
+        int32_t finalLat = pvt->lat + (latHp / 100);
+        int32_t finalLon = pvt->lon + (lonHp / 100);
+        
+        // ==================== GUARD CHECKS ====================
+
+        // 1. Absolute Zero / Null Island Guard (|lat| or |lon| < 0.1 deg / 1,000,000 units)
+        // (Unless you are intentionally testing at the equator/prime meridian junction!)
+        if (validFix && (abs(finalLat) < 1000000 || abs(finalLon) < 1000000)) {
+            LOG_WARN("[UBX GPS] Guard Triggered: Coordinates near zero (Lat: %d, Lon: %d). Skipping.", finalLat, finalLon);
+            this->hasValidLocation = false;
+            validFix = false;
+        }
+
+        // 2. Out-of-bounds Earth Guard (> 90 lat / > 180 lon)
+        if (abs(finalLat) > 900000000 || abs(finalLon) > 1800000000) {
+            LOG_WARN("[UBX GPS] Guard Triggered: Out of bounds (Lat: %d, Lon: %d). Skipping.", finalLat, finalLon);
+            this->hasValidLocation = false;
+            validFix = false;
+        }
+
+        if (validFix) {
+                        
+            pos.has_latitude_i = true;
+            pos.latitude_i = pvt->lat + (pvt->latHp / 100);
+
+            pos.has_longitude_i = true;
+            pos.longitude_i = pvt->lon + (pvt->lonHp / 100);
+
+            // Altitude
+            pos.has_altitude = true;
+            pos.altitude = (pvt->hMSL + (pvt->hMSLHp / 10)) / 1000;
+
+            // Satellites & DOP
+            pos.sats_in_view = pvt->numSV;
+            pos.PDOP = pvt->pDOP;
+            
+            pos.fix_type = pvt->fixType;
+
+            //pos.timestamp = millis();
+            pos.precision_bits = 32;
+
+            // Pushes position directly to Meshtastic's internal database & phone app
+            this->hasValidLocation = true;
+
+            //LOG_DEBUG("[UBX GPS] Fix OK: Lat=%d, Lon=%d, Sats=%d", 
+            //          pvt->lat, pvt->lon, pvt->numSV);
+        } else {
+            this->hasValidLocation = false;
+        }
+        if (validFix || validTime) {
+            //if (nodeDB) {
+            if (gpsStatus) {
+                meshtastic::GPSStatus newStatus(
+                validFix,     // hasLock
+                true,         // isConnected (GPS responding over UART)
+                false,        // isPowerSaving
+                pos,          // meshtastic_Position struct payload
+                validTime     // hasTime (Decoupled time flag)
+            );
+
+            // Directly notifies PositionModule observers if status is dirty
+            static bool triggeredThisSecond = false;
+            uint32_t remainder = millis() % 1000;
+
+            // Triggers if loop lands within the first 10ms of any second
+            if (remainder < 50) {
+                if (!triggeredThisSecond) {
+                    triggeredThisSecond = true; 
+                    // Close enough to the second tick
+                    LOG_DEBUG("[UBX GPS] Status sent: time %u, lat %, lon %, sats %",
+                        pos.time,
+                        pvt->lat,
+                        pvt->lon,
+                        pvt->numSV);
+                    bool statusUpdated = gpsStatus->updateStatus(&newStatus);
+                    LOG_DEBUG("[UBX GPS] Status %s", statusUpdated ? "updated" : "NOT updated");
+                }
+            } else {
+                // Reset the lock once we move past the 50ms window
+                triggeredThisSecond = false; 
+            }      
+            
+            
+            }
+                
+            //    nodeDB->setLocalPosition(pos);
+            //}
+        }
+ 
+    }
+}
+
+void GPS::parseUBXByte(uint8_t b) {
+    switch (ubx_state) {
+        case PREAMBLE_1:
+            if (b == 0xB5) ubx_state = PREAMBLE_2;
+            break;
+
+        case PREAMBLE_2:
+            if (b == 0x62) {
+                ubx_state = CLASS;
+                calc_ck_a = 0;
+                calc_ck_b = 0;
+            } else {
+                ubx_state = (b == 0xB5) ? PREAMBLE_2 : PREAMBLE_1;
+            }
+            break;
+
+        case CLASS:
+            ubx_class = b;
+            calc_ck_a += b; calc_ck_b += calc_ck_a;
+            ubx_state = ID;
+            break;
+
+        case ID:
+            ubx_id = b;
+            calc_ck_a += b; calc_ck_b += calc_ck_a;
+            ubx_state = LENGTH_1;
+            break;
+
+        case LENGTH_1:
+            ubx_len = b;
+            calc_ck_a += b; calc_ck_b += calc_ck_a;
+            ubx_state = LENGTH_2;
+            break;
+
+        case LENGTH_2:
+            ubx_len |= ((uint16_t)b << 8);
+            calc_ck_a += b; calc_ck_b += calc_ck_a;
+            ubx_payload_idx = 0;
+            if (ubx_len > sizeof(ubx_payload)) {
+                // Payload too large for buffer, discard
+                ubx_state = PREAMBLE_1;
+            } else if (ubx_len == 0) {
+                ubx_state = CK_A;
+            } else {
+                ubx_state = PAYLOAD;
+            }
+            break;
+
+        case PAYLOAD:
+            ubx_payload[ubx_payload_idx++] = b;
+            calc_ck_a += b; calc_ck_b += calc_ck_a;
+            if (ubx_payload_idx >= ubx_len) {
+                ubx_state = CK_A;
+            }
+            break;
+
+        case CK_A:
+            ubx_ck_a = b;
+            ubx_state = CK_B;
+            break;
+
+        case CK_B:
+            ubx_ck_b = b;
+            if (calc_ck_a == ubx_ck_a && calc_ck_b == ubx_ck_b) {
+                // Valid frame, process payload
+                handleUBXMessageOld(ubx_class, ubx_id, ubx_payload, ubx_len);
+            } else {
+                LOG_WARN("[UBX RX] Checksum mismatch! Calc: 0x%02X 0x%02X, Recv: 0x%02X 0x%02X", 
+                         calc_ck_a, calc_ck_b, ubx_ck_a, ubx_ck_b);
+            }
+            ubx_state = PREAMBLE_1;
+            break;
+    }
+}
+
+
 
 std::unique_ptr<GPS> GPS::createGps()
 {
@@ -2068,7 +2464,46 @@ static int32_t toDegInt(RawDegrees d)
  *
  * @return true if we've set a new time
  */
+ 
 bool GPS::lookForTime()
+{
+    if (ubxTimeData.valid) {
+        // Calculate frame age in milliseconds to adjust seconds accurately
+        uint32_t ageMs = millis() - ubxTimeData.lastParsedMs;
+
+        struct tm t;
+        t.tm_sec = ubxTimeData.sec + round(ageMs / 1000.0);
+        t.tm_min = ubxTimeData.min;
+        t.tm_hour = ubxTimeData.hour;
+        t.tm_mday = ubxTimeData.day;
+        t.tm_mon = ubxTimeData.month - 1; // tm_mon is 0-indexed (0 = Jan)
+        t.tm_year = ubxTimeData.year - 1900; // tm_year is years since 1900
+        t.tm_isdst = false;
+
+        if (t.tm_mon > -1) {
+            // Validate time plausibility using Meshtastic's native rule
+            if (!isPlausibleNmeaTime(t)) {
+                return false;
+            }
+
+            // Sync node RTC clock
+            if (perhapsSetRTC(RTCQualityGPS, t) == RTCSetResultSuccess) {
+                LOG_DEBUG("UBX GPS time set %04d-%02d-%02d %02d:%02d:%02d age %dms", 
+                          ubxTimeData.year, ubxTimeData.month, t.tm_mday, 
+                          t.tm_hour, t.tm_min, t.tm_sec, ageMs);
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+bool GPS::lookForTimeOld()
 {
     auto ti = reader.time;
     auto d = reader.date;
@@ -2108,7 +2543,204 @@ The Unix epoch (or Unix time or POSIX time or Unix timestamp) is the number of s
  *
  * @return true if we've acquired a new location
  */
-bool GPS::lookForLocation()
+ 
+ bool GPS::lookForLocation()
+{
+    // Map UBX fixType directly (0=No fix, 2=2D, 3=3D)
+    p.fix_type = ubxLocData.fixType;
+    fixQual = (ubxLocData.fixFlags & 0x01) ? 1 : 0; // Bit 0 of flags = gnssFixOK
+
+    // Check if GPS has an acceptable lock
+    if (!hasLock())
+        return false;
+
+    // Check if a new UBX frame arrived
+    if (!ubxLocData.isUpdated)
+        return false;
+    
+    // 1. Populate the 'tm' struct so 't' exists in scope
+    struct tm t = {};
+    t.tm_sec = ubxTimeData.sec;
+    t.tm_min = ubxTimeData.min;
+    t.tm_hour = ubxTimeData.hour;
+    t.tm_mday = ubxTimeData.day;
+    t.tm_mon = ubxTimeData.month - 1; // tm_mon is 0-11
+    t.tm_year = ubxTimeData.year - 1900; // tm_year is years since 1900
+    t.tm_isdst = 0;
+    
+    int32_t currentLatI = ubxLocData.lat;
+    int32_t currentLonI = ubxLocData.lon;
+    int32_t currentAltMeters = ubxLocData.height / 1000;
+    uint32_t nowEpoch = gm_mktime(&t);
+    
+    // 3. Distance Jump Filter (Haversine)
+    //    Ignore jump > 500km within 60 seconds of last valid update
+    static int32_t  lastStoredLatI = 0;
+    static int32_t  lastStoredLonI = 0;
+    static int32_t lastStoredAltMeters = 0;
+    static uint32_t lastStoredTimeEpoch = 0;
+
+    if (currentAltMeters > 50000 || currentAltMeters < -500) {
+        LOG_ERROR("Rejected impossible absolute altitude: %d m", currentAltMeters);
+        ubxLocData.isUpdated = false;
+        return false;
+    }
+
+    // Only apply filter if we already have a previous, recent stored fix (within the last 60 seconds)
+    if (lastStoredTimeEpoch > 0 && (nowEpoch - lastStoredTimeEpoch <= 60)) {
+        // Haversine Constants
+        const float_t EarthRadiusKm = 6371.0f; // Mean Earth Radius in km
+        const float_t DegToRad = (float_t)M_PI / 180.0f;
+        const float_t ScaleFactorRecip = 1.0f / 10000000.0f; // 1e-7 to float
+
+        // Convert current I-scaled points to float radians
+        float_t latNewR = ((float_t)currentLatI * ScaleFactorRecip) * DegToRad;
+        float_t lonNewR = ((float_t)currentLonI * ScaleFactorRecip) * DegToRad;
+
+        // Convert previous stored I-scaled points to float radians
+        float_t latOldR = ((float_t)lastStoredLatI * ScaleFactorRecip) * DegToRad;
+        float_t lonOldR = ((float_t)lastStoredLonI * ScaleFactorRecip) * DegToRad;
+
+        // Deltas
+        float_t dLat = latNewR - latOldR;
+        float_t dLon = lonNewR - lonOldR;
+        int32_t altDelta = abs(currentAltMeters - lastStoredAltMeters);
+
+        // Haversine Core (a is the square of half the chord length)
+        float_t a = sin(dLat / 2.0f) * sin(dLat / 2.0f) +
+                    cos(latOldR) * cos(latNewR) *
+                    sin(dLon / 2.0f) * sin(dLon / 2.0f);
+
+        // c is the angular distance in radians
+        float_t c = 2.0f * atan2(sqrt(a), sqrt(1.0f - a));
+
+        // Resulting distance in km
+        float_t jumpDistanceKm = EarthRadiusKm * c;
+
+        // Drop if altitude shifts by more than 1000m within a minute
+        if (altDelta > 300) {
+            LOG_ERROR("Rejected abnormal altitude jump: %d m change", altDelta);
+            ubxLocData.isUpdated = false;
+            return false;
+        }
+
+        // 500km threshold check
+        if (jumpDistanceKm > 100.0f) {
+            // Illogical jump detected! Reject this fix.
+            LOG_ERROR("Rejected illogical position jump: %2.2f km detected", jumpDistanceKm);
+            ubxLocData.isUpdated = false;
+            return false; // Exit without committing the position change
+        }
+        
+    }
+    
+    // 4. Position committed! Update history guards.
+    // If we reach here, the filter passed (or was not applicable).
+    lastStoredLatI = currentLatI;
+    lastStoredLonI = currentLonI;
+    lastStoredTimeEpoch = nowEpoch; // Mark this fix as the new baseline
+    
+    
+    // Clear updated flag so we don't re-read the same frame next loop
+    ubxLocData.isUpdated = false;
+
+    // Calculate age of solution
+    uint32_t ageMs = millis() - ubxLocData.lastParsedMs;
+
+    // Reject stale solution sets
+    if (ageMs > GPS_SOL_EXPIRY_MS) {
+        LOG_WARN("UBX DATA TOO OLD: %u ms", ageMs);
+        return false;
+    }
+
+    // Defensive Guards: Reject Null Island and invalid Earth coordinates
+    if (abs(ubxLocData.lat) > 900000000) {
+        LOG_DEBUG_GPS("Bail out EARLY on LAT %i", ubxLocData.lat);
+        return false;
+    }
+    if (abs(ubxLocData.lon) > 1800000000) {
+        LOG_DEBUG_GPS("Bail out EARLY on LNG %i", ubxLocData.lon);
+        return false;
+    }
+    if (ubxLocData.lat == 0 && ubxLocData.lon == 0) {
+        LOG_WARN("Bail out EARLY on Null Island (0,0)");
+        return false;
+    }
+
+    // Core Position Population
+    p.location_source = meshtastic_Position_LocSource_LOC_INTERNAL;
+    p.altitude_source = meshtastic_Position_AltSource_ALT_INTERNAL;
+
+    p.has_latitude_i = true;
+    p.latitude_i = ubxLocData.lat;
+
+    p.has_longitude_i = true;
+    p.longitude_i = ubxLocData.lon;
+
+    //p.has_PDOP = true;
+    p.PDOP = ubxLocData.pdop;
+
+    // Altitude fields (UBX values in mm converted to meters)
+    p.has_altitude = true;
+    
+    p.altitude = ubxLocData.hMSL / 1000;
+
+    p.has_altitude_hae = true;
+    p.altitude_hae = ubxLocData.height / 1000;
+
+    p.has_altitude_geoidal_separation = true;
+    p.altitude_geoidal_separation = (ubxLocData.height - ubxLocData.hMSL) / 1000;
+
+    //p.has_sats_in_view = true;
+    p.sats_in_view = ubxLocData.numSV;
+
+    p.fix_quality = (ubxLocData.fixFlags & 0x01) ? 1 : 0;
+    p.fix_type = ubxLocData.fixType;
+
+    // Set high-precision marker so PositionModule preserves bits
+    p.precision_bits = 32;
+
+    // Timestamps
+    if (ubxTimeData.valid) {
+        struct tm t;
+        t.tm_sec = ubxTimeData.sec;
+        t.tm_min = ubxTimeData.min;
+        t.tm_hour = ubxTimeData.hour;
+        t.tm_mday = ubxTimeData.day;
+        t.tm_mon = ubxTimeData.month - 1;
+        t.tm_year = ubxTimeData.year - 1900;
+        t.tm_isdst = false;
+        uint32_t newTimestamp = gm_mktime(&t);
+
+        // Reject frame if timestamp hasn't ticked over to a new second
+        if (newTimestamp <= p.timestamp) {
+            return false; // Suppresses duplicate timestamp execution
+        }
+
+        //p.timestamp = newTimestamp;
+        p.timestamp = gm_mktime(&t);
+        p.timestamp_millis_adjust = (ubxLocData.nano / 1000000);
+    } else {
+        p.timestamp = millis() / 1000;
+    }
+
+    // Heading (UBX headMot in 1e-5 degrees converted to 1e-5 degrees expected by Meshtastic)
+    if (ubxLocData.headMot < 36000000) { // 360 degrees * 1e5
+        p.has_ground_track = true;
+        p.ground_track = ubxLocData.headMot;
+    }
+
+    // Speed (UBX gSpeed in mm/s converted to km/h)
+    if (ubxLocData.gSpeed >= 0) {
+        p.has_ground_speed = true;
+        p.ground_speed = (ubxLocData.gSpeed * 36) / 10000; // mm/s -> km/h
+    }
+
+    return true;
+}
+ 
+ 
+bool GPS::lookForLocationOld()
 {
     // By default, TinyGPS++ does not parse GPGSA lines, which give us
     //   the 2D/3D fixType (see NMEAGPS.h)
@@ -2123,7 +2755,7 @@ bool GPS::lookForLocation()
 #endif
             LOG_WARN("%u new GPS checksum failures, total %u", reader.failedChecksum() - lastChecksumFailCount,
                      reader.failedChecksum());
-        lastChecksumFailCount = reader.failedChecksum();
+        //lastChecksumFailCount = reader.failedChecksum();
     }
 #endif
 
@@ -2253,6 +2885,120 @@ bool GPS::hasLock()
 
 bool GPS::whileActive()
 {
+    bool validFrameParsed = false;
+
+    if (powerState != GPS_ACTIVE) {
+        clearBuffer();
+        ubxState = UBX_SEARCH_SYNC1;
+        return false;
+    }
+
+#ifdef SERIAL_BUFFER_SIZE
+    if (_serial_gps->available() >= SERIAL_BUFFER_SIZE - 1) {
+        LOG_WARN("GPS Buffer full (%u bytes). Flush to avoid corruption", _serial_gps->available());
+        clearBuffer();
+        ubxState = UBX_SEARCH_SYNC1;
+    }
+#endif
+
+    // Consume all available bytes in the serial RX ring buffer
+    while (_serial_gps->available() > 0) {
+        uint8_t c = _serial_gps->read();
+
+        // Binary state machine for UBX frame extraction
+        switch (ubxState) {
+            case UBX_SEARCH_SYNC1:
+                if (c == 0xB5) {
+                    ubxState = UBX_SEARCH_SYNC2;
+                }
+                break;
+
+            case UBX_SEARCH_SYNC2:
+                if (c == 0x62) {
+                    ubxState = UBX_CLASS;
+                } else if (c != 0xB5) {
+                    ubxState = UBX_SEARCH_SYNC1;
+                }
+                break;
+
+            case UBX_CLASS:
+                // Only accept NAV Class (0x01). If it's anything else (or NMEA noise), abort immediately.
+                if (c == 0x01) {
+                    ubxMsgClass = c;
+                    ubxState = UBX_ID;
+                } else {
+                    ubxState = UBX_SEARCH_SYNC1; // Drop invalid frame early
+                }
+                break;
+
+            case UBX_ID:
+                // Only accept NAV-PVT (0x07) or NAV-TIMEUTC (0x21). Abort if unknown.
+                if (c == 0x07 || c == 0x21) {
+                    ubxMsgId = c;
+                    ubxState = UBX_LENGTH_LSB;
+                } else {
+                    ubxState = UBX_SEARCH_SYNC1; // Drop invalid frame early
+                }
+                break;
+
+            case UBX_LENGTH_LSB:
+                ubxPayloadLen = c;
+                ubxState = UBX_LENGTH_MSB;
+                break;
+
+            case UBX_LENGTH_MSB:
+                ubxPayloadLen |= ((uint16_t)c << 8);
+
+                // Sanity Guard: NAV-PVT is always 92 to 100 bytes. 
+                // Anything < 10 or > 120 bytes in Class 0x01 ID 0x07 is guaranteed to be NMEA collision noise.
+                if (ubxPayloadLen < 10 || ubxPayloadLen > 120) {
+                    // Silent drop (suppress log spam) and reset sync
+                    ubxState = UBX_SEARCH_SYNC1;
+                } else {
+                    ubxPayloadIdx = 0;
+                    ubxState = UBX_PAYLOAD;
+                }
+                break;
+
+            case UBX_PAYLOAD:
+                ubxPayloadBuffer[ubxPayloadIdx++] = c;
+                if (ubxPayloadIdx >= ubxPayloadLen) {
+                    ubxState = UBX_CK_A;
+                }
+                break;
+
+            case UBX_CK_A:
+                // Store CK_A in scratch variable and prepare for CK_B
+                UBXscratch[0] = c;
+                ubxState = UBX_CK_B;
+                break;
+
+            case UBX_CK_B: {
+                uint8_t ckA = UBXscratch[0];
+                uint8_t ckB = c;
+
+                // Pass completed binary frame to your handler function
+                handleUBXMessage(ubxMsgClass, ubxMsgId, ubxPayloadBuffer, ubxPayloadLen, ckA, ckB);
+                
+                validFrameParsed = true;
+
+                // Reset state machine for the next incoming packet
+                ubxState = UBX_SEARCH_SYNC1;
+                break;
+            }
+
+            default:
+                ubxState = UBX_SEARCH_SYNC1;
+                break;
+        }
+    }
+
+    return validFrameParsed;
+}
+
+
+bool GPS::whileActiveOld()
+{
     unsigned int charsInBuf = 0;
     bool isValid = false;
 #if GPS_DEBUG
@@ -2273,9 +3019,14 @@ bool GPS::whileActive()
         int c = _serial_gps->read();
         UBXscratch[charsInBuf] = c;
 #if GPS_DEBUG
-        debugmsg += vformat("%c", (c >= 32 && c <= 126) ? c : '.');
+        //debugmsg += vformat("%c", (c >= 32 && c <= 126) ? c : '.');
+        //debugmsg += vformat("%c", (c >= 1 && c <= 80) ? c : '.');
+        
 #endif
-        isValid |= reader.encode(c);
+
+        parseUBXByte((uint8_t)c);
+        
+        //isValid |= reader.encode(c);
         if (charsInBuf > sizeof(UBXscratch) - 10 || c == '\r') {
             if (strnstr((char *)UBXscratch, "$GPTXT,01,01,02,u-blox ag - www.u-blox.com*50", charsInBuf)) {
                 rebootsSeen++;
@@ -2290,6 +3041,7 @@ bool GPS::whileActive()
         LOG_DEBUG("%s", debugmsg.c_str());
     }
 #endif
+
     return isValid;
 }
 void GPS::enable()

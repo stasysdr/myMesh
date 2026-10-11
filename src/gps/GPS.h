@@ -32,6 +32,67 @@
 #define GPS_RF_EN_ACTIVE HIGH
 #endif
 
+// UBX-NAV-PVT Payload (Class 0x01, ID 0x07 - 92 bytes)
+#pragma pack(push, 1)
+struct UBX_NAV_PVT_payload {
+    uint32_t iTOW;       // GPS time of week (ms)
+    uint16_t year;       // Year (UTC)
+    uint8_t  month;      // Month (UTC)
+    uint8_t  day;        // Day (UTC)
+    uint8_t  hour;       // Hour (UTC)
+    uint8_t  min;        // Minute (UTC)
+    uint8_t  sec;        // Second (UTC)
+    uint8_t  valid;      // Validity flags
+    uint32_t tAcc;       // Time accuracy estimate (ns)
+    int32_t  nano;       // Fraction of second (ns)
+    uint8_t  fixType;    // GNSSfix Type: 0=No fix, 2=2D, 3=3D, etc.
+    uint8_t  flags;      // Fix status flags
+    uint8_t  flags2;     // Additional flags
+    uint8_t  numSV;      // Number of satellites used
+    int32_t  lon;        // Longitude (1e-7 deg)
+    int32_t  lat;        // Latitude (1e-7 deg)
+    int32_t  height;     // Height above ellipsoid (mm)
+    int32_t  hMSL;       // Height above mean sea level (mm)
+    uint32_t hAcc;       // Horizontal accuracy estimate (mm)
+    uint32_t vAcc;       // Vertical accuracy estimate (mm)
+    int32_t  velN;       // NED north velocity (mm/s)
+    int32_t  velE;       // NED east velocity (mm/s)
+    int32_t  velD;       // NED down velocity (mm/s)
+    int32_t  gSpeed;     // Ground Speed (mm/s)
+    int32_t  headMot;    // Heading of motion (1e-5 deg)
+    uint32_t sAcc;       // Speed accuracy estimate (mm/s)
+    uint32_t headAcc;    // Heading accuracy estimate (1e-5 deg)
+    uint16_t pDOP;       // Position DOP (0.01 land)
+    uint8_t  flags3;     // Additional flags
+    uint8_t  reserved1[5];
+    int32_t  headVeh;    // Heading of vehicle (1e-5 deg)
+    int16_t  magDec;     // Magnetic declination (1e-2 deg)
+    uint16_t magAcc;     // Magnetic declination accuracy (1e-2 deg)
+    // High Precision Fields (Scale: deg * 1e-9)
+    int8_t   latHp;      // Lat high-precision offset
+    int8_t   lonHp;      // Lon high-precision offset
+    int8_t   heightHp;   // Height offset (0.1 mm)
+    int8_t   hMSLHp;     // hMSL offset (0.1 mm)
+    uint32_t reserved2;  // Trailing payload alignment
+};
+#pragma pack(pop)
+
+// UBX Parser State Machine States
+enum UBXState {
+    PREAMBLE_1,  // Expect 0xB5
+    PREAMBLE_2,  // Expect 0x62
+    CLASS,       // Message Class
+    ID,          // Message ID
+    LENGTH_1,    // Length low byte
+    LENGTH_2,    // Length high byte
+    PAYLOAD,     // Reading Payload
+    CK_A,        // Checksum A
+    CK_B         // Checksum B
+};
+
+
+
+
 static constexpr uint32_t GPS_UPDATE_ALWAYS_ON_THRESHOLD_MS = 10 * 1000UL;
 static constexpr uint32_t GPS_FIX_HOLD_MAX_MS = 20000;
 
@@ -87,6 +148,7 @@ class GPS : private concurrency::OSThread
 {
   public:
     meshtastic_Position p = meshtastic_Position_init_default;
+    
 
     /** This is normally bound to config.position.gps_en_gpio but some rare boards (like heltec tracker) need more advanced
      * implementations. Those boards will set this public variable to a custom implementation.
@@ -142,6 +204,15 @@ class GPS : private concurrency::OSThread
     void down();
 
   private:
+  
+   void handleUBXMessage(uint8_t msgClass, uint8_t msgId, uint8_t *payload, uint16_t len, uint8_t ckA, uint8_t ckB);
+  
+    void handleUBXMessageOld(uint8_t msgClass, uint8_t msgId, uint8_t *payload, uint16_t len);
+    void parseUBXByte(uint8_t b);
+        //adde for UBX replacement
+    meshtastic_Position ubxPos = meshtastic_Position_init_default;
+    bool newUbxFrameAvailable = false;
+    
     GPS() : concurrency::OSThread("GPS") {}
 
     /// Record that we have a GPS
@@ -152,6 +223,7 @@ class GPS : private concurrency::OSThread
      * Return true if we received a valid message from the GPS
      */
     virtual bool whileActive();
+    virtual bool whileActiveOld();
 
     /**
      * Perform any processing that should be done only while the GPS is awake and looking for a fix.
@@ -160,6 +232,7 @@ class GPS : private concurrency::OSThread
      * @return true if we've acquired a time
      */
     virtual bool lookForTime();
+    virtual bool lookForTimeOld();
 
     /**
      * Perform any processing that should be done only while the GPS is awake and looking for a fix.
@@ -168,6 +241,9 @@ class GPS : private concurrency::OSThread
      * @return true if we've acquired a new location
      */
     virtual bool lookForLocation();
+    virtual bool lookForLocationOld();
+   
+    
     // Load persisted GPS model+baud from /prefs.
     bool loadProbeCache();
     // Clear persisted GPS model+baud cache.
@@ -188,6 +264,27 @@ class GPS : private concurrency::OSThread
     uint8_t currentStep = 0;
     int32_t currentDelay = 2000;
     bool gotTime = false;
+
+    enum UbxParseState {
+        UBX_SEARCH_SYNC1,
+        UBX_SEARCH_SYNC2,
+        UBX_CLASS,
+        UBX_ID,
+        UBX_LENGTH_LSB,
+        UBX_LENGTH_MSB,
+        UBX_PAYLOAD,
+        UBX_CK_A,
+        UBX_CK_B
+    };
+
+    UbxParseState ubxState = UBX_SEARCH_SYNC1;
+    uint8_t ubxMsgClass = 0;
+    uint8_t ubxMsgId = 0;
+    uint16_t ubxPayloadLen = 0;
+    uint16_t ubxPayloadIdx = 0;
+    uint8_t ubxPayloadBuffer[128]; // Fits NAV-PVT (92-100+ bytes)
+
+
 
 #ifndef TINYGPS_OPTION_NO_CUSTOM_FIELDS
     // (20210908) TinyGps++ can only read the GPGSA "FIX TYPE" field

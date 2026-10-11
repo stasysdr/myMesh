@@ -60,6 +60,16 @@ extern "C" {
 #define BUTTON_NEED_PULLUP
 #define PIN_BUTTON2 12
 
+#define GPS_BAUDRATE 115200
+#define GPS_BAUDRATE_FIXED 1
+#define GPS_PASSIVE_ONLY
+
+#ifndef GPS_DEBUG
+#define GPS_DEBUG 0
+#endif
+
+//#endif
+
 /*
  * Analog pins
  */
