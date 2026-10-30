@@ -85,7 +85,7 @@ RF95Interface::RF95Interface(LockingArduinoHal *hal, RADIOLIB_PIN_TYPE cs, RADIO
                              RADIOLIB_PIN_TYPE busy)
     : RadioLibInterface(hal, cs, irq, rst, busy)
 {
-    LOG_DEBUG("RF95Interface(cs=%d, irq=%d, rst=%d, busy=%d)", cs, irq, rst, busy);
+    LOG_DEBUG_RADIO("RF95Interface(cs=%d, irq=%d, rst=%d, busy=%d)", cs, irq, rst, busy);
 }
 
 /** Some boards require GPIO control of tx vs rx paths */
@@ -283,6 +283,8 @@ int16_t RF95Interface::programModemParams()
 
 bool RF95Interface::reconfigure()
 {
+    // A readout between these calls would clear the flags they set up, or move the chip out from under them
+    RadioSequence seq(this);
     RadioLibInterface::reconfigure();
 
     // set mode to standby - a chip that lost its state to a reset/brownout can fail here,
@@ -318,7 +320,7 @@ void RF95Interface::addReceiveMetadata(meshtastic_MeshPacket *mp)
     mp->rx_snr = lora->getSNR();
     mp->rx_rssi = lround(lora->getRSSI());
     mp->has_rx_rssi = true; // rx_rssi has explicit presence - a genuine reading must be marked present to survive encoding
-    LOG_DEBUG("Corrected frequency offset: %f", lora->getFrequencyError());
+    LOG_DEBUG_RADIO("Corrected frequency offset: %f", lora->getFrequencyError());
 }
 
 int16_t RF95Interface::trySetStandby()
@@ -352,13 +354,24 @@ void RF95Interface::configHardwareForSend()
 void RF95Interface::startReceive()
 {
     setTransmitEnable(false);
-    setStandby();
-    int err = lora->startReceive();
-    if (err != RADIOLIB_ERR_NONE)
-        LOG_ERROR("RF95 startReceive %s%d", radioLibErr, err);
-    assert(err == RADIOLIB_ERR_NONE);
+    int16_t err = trySetStandby();
+    if (err == RADIOLIB_ERR_NONE)
+        err = lora->startReceive();
 
-    isReceiving = true;
+    if (err != RADIOLIB_ERR_NONE) {
+        LOG_ERROR("RF95 startReceive %s%d", radioLibErr, err);
+        if (maybeRecoverChipStateLoss())
+            err = lora->startReceive();
+    }
+
+    if (err != RADIOLIB_ERR_NONE) {
+        // No assert: leave RX off rather than reboot; periodicRadioMaintenance() re-arms it, throttled
+        LOG_ERROR("RF95 RX offline %s%d", radioLibErr, err);
+        rxOffline = true;
+        return;
+    }
+
+    RadioLibInterface::startReceive();
 
     // Must be done AFTER, starting receive, because startReceive clears (possibly stale) interrupt pending register bits
     enableInterrupt(isrRxLevel0);
@@ -368,21 +381,24 @@ void RF95Interface::startReceive()
 bool RF95Interface::isChannelActive()
 {
     // check if we can detect a LoRa preamble on the current channel
-    int16_t result;
     setTransmitEnable(false);
-    setStandby(); // needed for smooth transition
-    result = lora->scanChannel();
+    int16_t result = trySetStandby(); // needed for smooth transition
+    if (result == RADIOLIB_ERR_NONE) {
+        result = lora->scanChannel();
 
-    if (result == RADIOLIB_PREAMBLE_DETECTED) {
-        // LOG_DEBUG("Channel is busy");
-        return true;
+        if (result == RADIOLIB_PREAMBLE_DETECTED) {
+            // LOG_DEBUG("Channel is busy");
+            return true;
+        }
+        if (result != RADIOLIB_CHANNEL_FREE)
+            LOG_ERROR("RF95 isChannelActive %s%d", radioLibErr, result);
+        if (result != RADIOLIB_ERR_WRONG_MODEM)
+            return false;
     }
-    if (result != RADIOLIB_CHANNEL_FREE)
-        LOG_ERROR("RF95 isChannelActive %s%d", radioLibErr, result);
-    assert(result != RADIOLIB_ERR_WRONG_MODEM);
 
-    // LOG_DEBUG("Channel is free");
-    return false;
+    // standby failed or the LoRa modem type is gone - the chip lost its runtime state
+    maybeRecoverChipStateLoss();
+    return false; // report the channel free: a recovered chip can TX, a dead one fails startSend safely
 }
 
 /** Could we send right now (i.e. either not actively receiving or transmitting)? */
@@ -393,8 +409,11 @@ bool RF95Interface::isActivelyReceiving()
 
 bool RF95Interface::sleep()
 {
-    // put chipset into sleep mode
-    setStandby(); // First cancel any active receiving/sending
+    // put chipset into sleep mode. trySetStandby() and the sleep command below are one sequence: a readout landing
+    // between them talks to a chip on its way down, and the standby would be undone by the arm its caller can follow
+    // the readout with.
+    RadioSequence seq(this);
+    (void)trySetStandby(); // First cancel any active receiving/sending - going to sleep, a failure must not crash
     lora->sleep();
 
 #ifdef RF95_POWER_EN
