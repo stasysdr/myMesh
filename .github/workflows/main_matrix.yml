@@ -151,6 +151,9 @@ jobs:
       fail-fast: false
       matrix:
         build: ${{ fromJson(needs.setup.outputs.all) }}
+        exclude:
+          - build:
+              board: wio-sdk-wm1110
     uses: ./.github/workflows/build_firmware.yml
     with:
       version: ${{ needs.version.outputs.long }}
